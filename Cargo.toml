@@ -6,6 +6,7 @@ description = "System information fetcher in Rust"
 authors = ["Your Name <your.email@example.com>"]
 
 [dependencies]
+sys-info = "0.9.0"
 colored = "2.0.4"
 users = "0.11.0"
 sysinfo = "0.29.10"
