@@ -2,6 +2,7 @@ use std::fs;
 use std::io;
 use std::path::PathBuf;
 use sysinfo::CpuExt;
+use sys_info;
 use machine_info::Machine;
 use clap::{Parser, Subcommand};
 use colored::Colorize; // Fixed import for colorize trait
@@ -351,14 +352,20 @@ fn get_memory_usage() -> String {
     format!("{}% ({:.1}GB/{:.1}GB)", memory_percent as u64, used_memory_gb, total_memory_gb)
 }
 
-fn get_gpu_info() -> String {
-    let machine = Machine::new();                // ⬅️ no Result, just returns Machine
-    if let Some(gpu) = machine.gpu.first() {
-        let brand = gpu.vendor.clone().unwrap_or_default();
-        let model = gpu.name.clone().unwrap_or_default();
-        return format!("{} {}", brand, model);
+fn get_gpu_info() {
+ match sys_info::cpu_info() {
+        Ok(cpu) => println!("CPU: {}", cpu),
+        Err(e) => eprintln!("Error: {}", e),
     }
-    "Unknown GPU".to_string()
+let output = std::process::Command::new("lspci")
+        .arg("|")
+        .arg("grep")
+        .arg("VGA")
+        .output()
+        .expect("Failed to execute command");
+
+    let result = String::from_utf8_lossy(&output.stdout);
+    println!("Video card info: {}", result);
 }
 
 fn get_shell() -> String {
