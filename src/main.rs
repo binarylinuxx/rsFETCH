@@ -1,12 +1,17 @@
 use std::fs;
 use std::io;
 use std::path::PathBuf;
-use sysinfo::CpuExt;
 use machine_info::Machine;
 use clap::{Parser, Subcommand};
 use colored::Colorize; // Fixed import for colorize trait
 use dirs::home_dir;
-use sysinfo::{System, SystemExt, ComponentExt};
+use sysinfo::{
+    System,
+    CpuRefreshKind, 
+    MemoryRefreshKind,
+    RefreshKind,
+};
+
 use toml::{Table, Value};
 use users::{get_current_uid, get_user_by_uid};
 
@@ -297,10 +302,7 @@ fn get_username() -> String {
 }
 
 fn get_kernel() -> String {
-    let mut sys = System::new_all();
-    sys.refresh_all();
-    
-    sys.kernel_version().unwrap_or_else(|| "Unknown".to_string())
+    System::kernel_version().unwrap_or_else(|| "Unknown".to_string())
 }
 
 fn get_os_info() -> String {
@@ -308,8 +310,7 @@ fn get_os_info() -> String {
 }
 
 fn get_uptime() -> String {
-    let sys = System::new_all();
-    let uptime_seconds = sys.uptime();
+    let uptime_seconds = System::uptime();
     
     let days = uptime_seconds / 86400;
     let hours = (uptime_seconds % 86400) / 3600;
@@ -351,15 +352,43 @@ fn get_memory_usage() -> String {
     format!("{}% ({:.1}GB/{:.1}GB)", memory_percent as u64, used_memory_gb, total_memory_gb)
 }
 
+use std::process::Command;
+
+
 fn get_gpu_info() -> String {
-    let machine = Machine::new();                // ⬅️ no Result, just returns Machine
-    if let Some(gpu) = machine.gpu.first() {
-        let brand = gpu.vendor.clone().unwrap_or_default();
-        let model = gpu.name.clone().unwrap_or_default();
-        return format!("{} {}", brand, model);
+    if let Ok(output) = Command::new("lspci").arg("-mm").output() {
+        let output_str = String::from_utf8_lossy(&output.stdout);
+        for line in output_str.lines() {
+            if line.contains("VGA compatible controller") || line.contains("3D controller") {
+                // Для AMD Radeon
+                if let Some(start) = line.find("Radeon RX") {
+                    let model_part = &line[start..];
+                    let end = model_part.find('/')
+                        .or_else(|| model_part.find(']'))
+                        .or_else(|| model_part.find('"'))
+                        .unwrap_or(model_part.len());
+                    return model_part[..end].trim().to_string();
+                }
+                // Для NVIDIA GeForce
+                if let Some(start) = line.find("GeForce") {
+                    let model_part = &line[start..];
+                    let end = model_part.find('/')
+                        .or_else(|| model_part.find(']'))
+                        .or_else(|| model_part.find('"'))
+                        .unwrap_or(model_part.len());
+                    return model_part[..end].trim().to_string();
+                }
+                // Если не AMD и не NVIDIA, возвращаем общую модель (например, Intel)
+                let parts: Vec<&str> = line.split('"').collect();
+                if parts.len() >= 6 {
+                    return parts[5].trim().to_string();
+                }
+            }
+        }
     }
     "Unknown GPU".to_string()
 }
+
 
 fn get_shell() -> String {
     match std::env::var("SHELL") {
@@ -373,9 +402,15 @@ fn get_shell() -> String {
 fn get_rust_info() -> String {
     match std::process::Command::new("rustc").arg("--version").output() {
         Ok(output) if output.status.success() => {
-            String::from_utf8_lossy(&output.stdout).trim().to_string()
+            let version_str = String::from_utf8_lossy(&output.stdout);
+            // Парсим строку вида "rustc 1.86.0 (05f9846f8 2025-03-31)"
+            version_str
+                .split_whitespace()  // Разбиваем по пробелам
+                .nth(1)             // Берём второй элемент ("1.86.0")
+                .map(|v| format!("rustc {}", v))  // Добавляем "rustc"
+                .unwrap_or_else(|| "rustc (unknown)".to_string())
         },
-        _ => "Rust not found".to_string()
+        _ => "rustc not found".to_string()
     }
 }
 

@@ -8,11 +8,11 @@ authors = ["Your Name <your.email@example.com>"]
 [dependencies]
 colored = "2.0.4"
 users = "0.11.0"
-sysinfo = "0.29.10"
 chrono = "0.4.31"
 clap = { version = "4.4.6", features = ["derive"] }
 dirs = "5.0.1"
 whoami = "1.4.1"
 toml = "0.8.4"
 shellexpand = "3.1.0"
-machine-info = "0.4"
+machine-info = "1.0.9"
+sysinfo = "0.34"
