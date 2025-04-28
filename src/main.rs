@@ -353,19 +353,19 @@ fn get_memory_usage() -> String {
 }
 
 fn get_gpu_info() {
- match sys_info::cpu_info() {
-        Ok(cpu) => println!("CPU: {}", cpu),
-        Err(e) => eprintln!("Error: {}", e),
-    }
-let output = std::process::Command::new("lspci")
-        .arg("|")
-        .arg("grep")
-        .arg("VGA")
+    let output = Command::new("sh")
+        .arg("-c")
+        .arg("lspci -nn | grep VGA | sed -E 's/.*\\[Radeon (.*)\\].*/Radeon \\1/'")
         .output()
         .expect("Failed to execute command");
 
-    let result = String::from_utf8_lossy(&output.stdout);
-    println!("Video card info: {}", result);
+    if output.status.success() {
+        let result = String::from_utf8_lossy(&output.stdout);
+        println!("{}", result.trim());
+    } else {
+        let error = String::from_utf8_lossy(&output.stderr);
+        eprintln!("Error: {}", error);
+    }
 }
 
 fn get_shell() -> String {
